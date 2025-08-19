@@ -1,0 +1,21 @@
+create extension if not exists "uuid-ossp";
+create table if not exists public.accounts (id uuid primary key default uuid_generate_v4(), name text not null, created_at timestamptz default now());
+create table if not exists public.assets (id uuid primary key default uuid_generate_v4(), account_id uuid not null references public.accounts(id) on delete cascade, name text not null, type text not null, serial text, qr_token text unique not null, created_at timestamptz default now());
+create table if not exists public.checklists (id uuid primary key default uuid_generate_v4(), account_id uuid not null references public.accounts(id) on delete cascade, name text not null, version int not null default 1, is_active boolean not null default true, created_at timestamptz default now());
+create table if not exists public.checklist_items (id uuid primary key default uuid_generate_v4(), checklist_id uuid not null references public.checklists(id) on delete cascade, order_index int not null, prompt text not null, type text not null check (type in ('boolean','text','number','select')), required boolean not null default false);
+create table if not exists public.asset_checklists (id uuid primary key default uuid_generate_v4(), asset_id uuid not null references public.assets(id) on delete cascade, checklist_id uuid not null references public.checklists(id) on delete cascade, unique (asset_id, checklist_id));
+create table if not exists public.submissions (id uuid primary key default uuid_generate_v4(), asset_id uuid not null references public.assets(id) on delete restrict, checklist_id uuid not null references public.checklists(id) on delete restrict, submitted_by text not null, submitted_at timestamptz not null default now(), status text not null default 'ok' check (status in ('ok','issue')));
+create table if not exists public.answers (id uuid primary key default uuid_generate_v4(), submission_id uuid not null references public.submissions(id) on delete cascade, item_id uuid not null references public.checklist_items(id) on delete cascade, value text);
+create table if not exists public.attachments (id uuid primary key default uuid_generate_v4(), submission_id uuid not null references public.submissions(id) on delete cascade, url text not null);
+create index if not exists idx_assets_account on public.assets(account_id);
+create index if not exists idx_checklists_account on public.checklists(account_id);
+create index if not exists idx_items_checklist on public.checklist_items(checklist_id);
+create index if not exists idx_submissions_asset_time on public.submissions(asset_id, submitted_at desc);
+alter table public.accounts enable row level security;
+alter table public.assets enable row level security;
+alter table public.checklists enable row level security;
+alter table public.checklist_items enable row level security;
+alter table public.asset_checklists enable row level security;
+alter table public.submissions enable row level security;
+alter table public.answers enable row level security;
+-- MVP uses service-role on server routes; add real auth+policies for production.

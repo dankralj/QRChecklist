@@ -1,0 +1,1 @@
+export default function Thanks(){return(<div className="card"><h2>Submitted ✅</h2><p>Thanks! Your inspection has been recorded.</p></div>)}
